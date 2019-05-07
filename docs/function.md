@@ -660,7 +660,7 @@ function full(person) {
 箭头函数使得表达更加简洁。
 
 ```javascript
-const isEven = n => n % 2 == 0;
+const isEven = n => n % 2 === 0;
 const square = n => n * n;
 ```
 
@@ -852,6 +852,36 @@ foo(2, 4, 6, 8)
 
 长期以来，JavaScript 语言的`this`对象一直是一个令人头痛的问题，在对象方法中使用`this`，必须非常小心。箭头函数”绑定”`this`，很大程度上解决了这个困扰。
 
+### 不适用场合
+
+由于箭头函数使得`this`从“动态”变成“静态”，下面两个场合不应该使用箭头函数。
+
+第一个场合是定义对象的方法，且该方法内部包括`this`。
+
+```javascript
+const cat = {
+  lives: 9,
+  jumps: () => {
+    this.lives--;
+  }
+}
+```
+
+上面代码中，`cat.jumps()`方法是一个箭头函数，这是错误的。调用`cat.jumps()`时，如果是普通函数，该方法内部的`this`指向`cat`；如果写成上面那样的箭头函数，使得`this`指向全局对象，因此不会得到预期结果。这是因为对象不构成单独的作用域，导致`jumps`箭头函数定义时的作用域就是全局作用域。
+
+第二个场合是需要动态`this`的时候，也不应使用箭头函数。
+
+```javascript
+var button = document.getElementById('press');
+button.addEventListener('click', () => {
+  this.classList.toggle('on');
+});
+```
+
+上面代码运行时，点击按钮会报错，因为`button`的监听函数是一个箭头函数，导致里面的`this`就是全局对象。如果改成普通函数，`this`就会动态指向被点击的按钮对象。
+
+另外，如果函数体很复杂，有许多行，或者函数内部有大量的读写操作，不单纯是为了计算值，这时也不应该使用箭头函数，而是要使用普通函数，这样可以提高代码可读性。
+
 ### 嵌套的箭头函数
 
 箭头函数内部，还可以再使用箭头函数。下面是一个 ES5 语法的多重嵌套函数。
@@ -916,50 +946,6 @@ var fix = f => (x => f(v => x(x)(v)))
 ```
 
 上面两种写法，几乎是一一对应的。由于 λ 演算对于计算机科学非常重要，这使得我们可以用 ES6 作为替代工具，探索计算机科学。
-
-## 双冒号运算符
-
-箭头函数可以绑定`this`对象，大大减少了显式绑定`this`对象的写法（`call`、`apply`、`bind`）。但是，箭头函数并不适用于所有场合，所以现在有一个[提案](https://github.com/zenparsing/es-function-bind)，提出了“函数绑定”（function bind）运算符，用来取代`call`、`apply`、`bind`调用。
-
-函数绑定运算符是并排的两个冒号（`::`），双冒号左边是一个对象，右边是一个函数。该运算符会自动将左边的对象，作为上下文环境（即`this`对象），绑定到右边的函数上面。
-
-```javascript
-foo::bar;
-// 等同于
-bar.bind(foo);
-
-foo::bar(...arguments);
-// 等同于
-bar.apply(foo, arguments);
-
-const hasOwnProperty = Object.prototype.hasOwnProperty;
-function hasOwn(obj, key) {
-  return obj::hasOwnProperty(key);
-}
-```
-
-如果双冒号左边为空，右边是一个对象的方法，则等于将该方法绑定在该对象上面。
-
-```javascript
-var method = obj::obj.foo;
-// 等同于
-var method = ::obj.foo;
-
-let log = ::console.log;
-// 等同于
-var log = console.log.bind(console);
-```
-
-如果双冒号运算符的运算结果，还是一个对象，就可以采用链式写法。
-
-```javascript
-import { map, takeWhile, forEach } from "iterlib";
-
-getPlayers()
-::map(x => x.character())
-::takeWhile(x => x.strength > 100)
-::forEach(x => console.log(x));
-```
 
 ## 尾调用优化
 
@@ -1101,8 +1087,8 @@ function Fibonacci (n) {
 }
 
 Fibonacci(10) // 89
-Fibonacci(100) // 堆栈溢出
-Fibonacci(500) // 堆栈溢出
+Fibonacci(100) // 超时
+Fibonacci(500) // 超时
 ```
 
 尾递归优化过的 Fibonacci 数列实现如下。
@@ -1119,7 +1105,7 @@ Fibonacci2(1000) // 7.0330367711422765e+208
 Fibonacci2(10000) // Infinity
 ```
 
-由此可见，“尾调用优化”对递归操作意义重大，所以一些函数式编程语言将其写入了语言规格。ES6 是如此，第一次明确规定，所有 ECMAScript 的实现，都必须部署“尾调用优化”。这就是说，ES6 中只要使用尾递归，就不会发生栈溢出，相对节省内存。
+由此可见，“尾调用优化”对递归操作意义重大，所以一些函数式编程语言将其写入了语言规格。ES6 亦是如此，第一次明确规定，所有 ECMAScript 的实现，都必须部署“尾调用优化”。这就是说，ES6 中只要使用尾递归，就不会发生栈溢出（或者层层递归造成的超时），相对节省内存。
 
 ### 递归函数的改写
 
@@ -1326,4 +1312,3 @@ clownsEverywhere(
 ```
 
 这样的规定也使得，函数参数与数组和对象的尾逗号规则，保持一致了。
-
